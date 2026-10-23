@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,7 +58,6 @@ namespace TickerQ.Utilities
         Func<IServiceProvider, System.Threading.Tasks.Task> ITickerOptionsSeeding.CronSeederAction => CronSeederAction;
 
         internal Action<IServiceCollection> ExternalProviderConfigServiceAction { get; set; }
-        internal Action<IServiceCollection> DashboardServiceAction { get; set; }
         internal Type TickerExceptionHandlerType { get; private set; }
         
         public TickerOptionsBuilder<TTimeTicker, TCronTicker> ConfigureScheduler(Action<SchedulerOptionsBuilder> schedulerOptionsBuilder)
@@ -212,9 +211,6 @@ namespace TickerQ.Utilities
         
         internal void UseExternalProviderApplication(Action<IServiceProvider> action)
             => _tickerExecutionContext.ExternalProviderApplicationAction = action;
-        
-        internal void UseDashboardApplication(Action<object> action)
-            => _tickerExecutionContext.DashboardApplicationAction = action;
     }
 
     public class SchedulerOptionsBuilder

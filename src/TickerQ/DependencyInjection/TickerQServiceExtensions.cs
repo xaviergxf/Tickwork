@@ -9,7 +9,6 @@ using TickerQ.TickerQThreadPool;
 using TickerQ.Utilities;
 using TickerQ.Utilities.Entities;
 using TickerQ.Utilities.Enums;
-using TickerQ.Utilities.Infrastructure;
 using TickerQ.Utilities.Instrumentation;
 using TickerQ.Utilities.Interfaces;
 using TickerQ.Utilities.Interfaces.Managers;
@@ -82,15 +81,12 @@ namespace TickerQ.DependencyInjection
             services.AddSingleton<ITickerFunctionConcurrencyGate, TickerFunctionConcurrencyGate>();
             services.AddSingleton<ITickerExecutionTaskHandler, TickerExecutionTaskHandler>();
             services.AddSingleton<ITickerQInstrumentation, LoggerInstrumentation>();
-            services.AddSingleton<ITickerDashboardDataService<TTimeTicker, TCronTicker>, TickerDashboardDataService<TTimeTicker, TCronTicker>>();
 
             optionInstance.ExternalProviderConfigServiceAction?.Invoke(services);
 
             // Register in-memory persistence as fallback — only used when no external provider
             // (EF Core, Redis, SDK) has been configured via ExternalProviderConfigServiceAction above.
             services.TryAddSingleton<ITickerPersistenceProvider<TTimeTicker, TCronTicker>, TickerInMemoryPersistenceProvider<TTimeTicker, TCronTicker>>();
-
-            optionInstance.DashboardServiceAction?.Invoke(services);
 
             if (optionInstance.TickerExceptionHandlerType != null)
                 services.AddSingleton(typeof(ITickerExceptionHandler), optionInstance.TickerExceptionHandlerType);
@@ -150,13 +146,6 @@ namespace TickerQ.DependencyInjection
             }
             // If background services are not registered (due to DisableBackgroundServices()),
             // silently skip background service configuration. This is expected behavior.
-
-            if (tickerExecutionContext?.DashboardApplicationAction != null)
-            {
-                // Cast object back to IApplicationBuilder for Dashboard middleware
-                tickerExecutionContext.DashboardApplicationAction(host);
-                tickerExecutionContext.DashboardApplicationAction = null;
-            }
 
             return host;
         }
