@@ -14,7 +14,8 @@ using Tickwork.Utilities.Models;
 
 namespace Tickwork.Tests;
 
-[Collection("TickerFunctionProviderState")]
+// Also shares TickerFunctionProvider's state; the collection below runs alone, so no other class runs beside it.
+[Collection(SchedulerTimeZoneCollection.Name)]
 public class TickerManagerTests : IDisposable
 {
     private const string ValidFunctionName = "TestFunction";

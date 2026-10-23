@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Tickwork.Tests;
 
+[Collection(SchedulerTimeZoneCollection.Name)]
 public class CronScheduleCacheTests
 {
     [Fact]

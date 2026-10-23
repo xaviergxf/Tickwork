@@ -1,55 +1,63 @@
+using Microsoft.Extensions.Time.Testing;
+
 namespace Tickwork.Tests;
 
 public class RestartThrottleManagerTests
 {
+    // The debounce window is 50 ms. Time is moved by a FakeTimeProvider: the tests used to wait on
+    // the wall clock, and a slow machine let the first timer fire before the second request reset it.
+
     [Fact]
-    public async Task RequestRestart_TriggersCallback_AfterDebounceWindow()
+    public void RequestRestart_TriggersCallback_AfterDebounceWindow()
     {
+        var time = new FakeTimeProvider();
         var triggered = false;
-        using var manager = new RestartThrottleManager(() => triggered = true);
+        using var manager = new RestartThrottleManager(() => triggered = true, time);
 
         manager.RequestRestart();
+        time.Advance(TimeSpan.FromMilliseconds(49));
+        Assert.False(triggered);
 
-        // Debounce window is 50ms, give some extra time
-        await Task.Delay(200);
-
+        time.Advance(TimeSpan.FromMilliseconds(1));
         Assert.True(triggered);
     }
 
     [Fact]
-    public async Task MultipleRequests_CoalesceIntoSingleCallback()
+    public void MultipleRequests_CoalesceIntoSingleCallback()
     {
+        var time = new FakeTimeProvider();
         var triggerCount = 0;
-        using var manager = new RestartThrottleManager(() => Interlocked.Increment(ref triggerCount));
+        using var manager = new RestartThrottleManager(() => Interlocked.Increment(ref triggerCount), time);
 
         // Multiple rapid requests should coalesce
         manager.RequestRestart();
         manager.RequestRestart();
         manager.RequestRestart();
 
-        await Task.Delay(200);
+        time.Advance(TimeSpan.FromMilliseconds(200));
 
         Assert.Equal(1, triggerCount);
     }
 
     [Fact]
-    public async Task RequestRestart_ResetsTimer_OnSubsequentCalls()
+    public void RequestRestart_ResetsTimer_OnSubsequentCalls()
     {
+        var time = new FakeTimeProvider();
         var triggerCount = 0;
-        using var manager = new RestartThrottleManager(() => Interlocked.Increment(ref triggerCount));
+        using var manager = new RestartThrottleManager(() => Interlocked.Increment(ref triggerCount), time);
 
         manager.RequestRestart();
-        await Task.Delay(30); // Less than debounce window (50ms)
+        time.Advance(TimeSpan.FromMilliseconds(30)); // Less than debounce window (50ms)
         manager.RequestRestart(); // Should reset the timer
-        await Task.Delay(30); // Still less than full window from second request
+        time.Advance(TimeSpan.FromMilliseconds(30)); // 60ms after the first request, 30ms after the second
 
         // Should not have triggered yet since timer was reset
-        // After full debounce from the last request it should trigger
-        await Task.Delay(100);
+        Assert.Equal(0, triggerCount);
 
+        // After full debounce from the last request it should trigger, once
+        time.Advance(TimeSpan.FromMilliseconds(100));
         Assert.Equal(1, triggerCount);
     }
-
     [Fact]
     public void Dispose_CanBeCalledSafely()
     {
