@@ -2,11 +2,11 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in TickerQ, please report it responsibly.
+If you discover a security vulnerability in Tickwork, please report it responsibly.
 
 **Do not open a public issue.**
 
-Email **contact@tickerq.net** with:
+Email **contact@tickwork.net** with:
 - Description of the vulnerability
 - Steps to reproduce
 - Impact assessment

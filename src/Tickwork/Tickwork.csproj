@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Description>A lightweight, developer-friendly library for queuing and executing cron and time-based jobs in the background.</Description>
+        <PackageTags>$(PackageTags);background-jobs;task-scheduling</PackageTags>
+        <PackageId>Tickwork</PackageId>
+        <LangVersion>latest</LangVersion>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IsAotCompatible>true</IsAotCompatible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
+
+   <ItemGroup>
+       <ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
+   </ItemGroup>
+
+    <!-- The source generator ships inside this package as an analyzer; it is not a runtime reference. -->
+    <ItemGroup>
+        <ProjectReference Include="..\Tickwork.SourceGenerator\Tickwork.SourceGenerator.csproj"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+    </ItemGroup>
+
+    <Target Name="PackSourceGenerator" BeforeTargets="_GetPackageFiles">
+        <MSBuild Projects="..\Tickwork.SourceGenerator\Tickwork.SourceGenerator.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)">
+            <Output TaskParameter="TargetOutputs" ItemName="_TickworkGeneratorAssembly" />
+        </MSBuild>
+        <ItemGroup>
+            <None Include="@(_TickworkGeneratorAssembly)" Pack="true" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+</Project>

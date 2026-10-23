@@ -1,0 +1,30 @@
+using System.Reflection;
+using Tickwork.Utilities;
+using Tickwork.Utilities.Entities;
+
+namespace Tickwork.DependencyInjection;
+
+public static class TickworkDiscoveryExtension
+{
+    private const string GeneratedClassSuffix = "TickworkInstanceFactoryExtensions";
+    
+    /// <summary>
+    /// Loads the assemblies to initialize the source generated code.
+    /// </summary>
+    public static TickerOptionsBuilder<TTimeTicker, TCronTicker> AddTickworkDiscovery<TTimeTicker, TCronTicker>(
+        this TickerOptionsBuilder<TTimeTicker, TCronTicker> tickerConfiguration, 
+        Assembly[] assemblies)
+        where TTimeTicker : TimeTickerEntity<TTimeTicker>, new()
+        where TCronTicker : CronTickerEntity, new()
+    {
+        var assembliesToLoad = assemblies ?? [];
+
+        foreach (var assembly in assembliesToLoad)
+        {
+            if(!string.IsNullOrEmpty(assembly.FullName))
+                Assembly.Load(assembly.FullName);
+        }
+        
+        return tickerConfiguration;
+    }
+}

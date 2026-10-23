@@ -5,8 +5,8 @@
         <Version>10.4.0</Version>
         <DotNetVersion>[10.0.0,11.0.0)</DotNetVersion>
         <DotNetAbstractionsVersion>[10.0.0,11.0.0)</DotNetAbstractionsVersion>
-        <RepositoryUrl>https://github.com/arcenox-co/TickerQ</RepositoryUrl>
-        <PackageProjectUrl>https://tickerq.net/</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/arcenox-co/Tickwork</RepositoryUrl>
+        <PackageProjectUrl>https://tickwork.net/</PackageProjectUrl>
         <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
         <Authors>Arcenox LLC</Authors>
         <Copyright>Copyright 2025-present Arcenox LLC</Copyright>

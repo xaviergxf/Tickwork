@@ -1,5 +1,5 @@
 name: Question
-description: Ask a question about TickerQ
+description: Ask a question about Tickwork
 labels: ["question"]
 body:
   - type: textarea

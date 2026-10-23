@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<PackageId>Tickwork.EntityFrameworkCore</PackageId>
+		<Description>Entity Framework Core integration for scheduling and persisting cron/time-based jobs using Tickwork.</Description>
+		<PackageTags>$(PackageTags);efcore;entityframework</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="$(DotNetVersion)" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(DotNetVersion)" />
+		<ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
+	</ItemGroup>
+</Project>
