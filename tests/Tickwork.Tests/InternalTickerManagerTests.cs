@@ -16,6 +16,7 @@ using Tickwork.Utilities.Models;
 
 namespace Tickwork.Tests;
 
+[Collection(SchedulerTimeZoneCollection.Name)]
 public class InternalTickerManagerTests
 {
     public class FakeTimeTicker : TimeTickerEntity<FakeTimeTicker> { }
