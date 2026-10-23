@@ -40,6 +40,13 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
     protected DbContextLease<TDbContext> CreateDbContext()
         => DbContextLease<TDbContext>.Create(_serviceProvider);
     
+    // The unique index UQ_CronTickerId_ExecutionTime: one occurrence per cron ticker and time.
+    private static readonly string[] OccurrenceUniqueKey =
+    [
+        nameof(CronTickerOccurrenceEntity<TCronTicker>.CronTickerId),
+        nameof(CronTickerOccurrenceEntity<TCronTicker>.ExecutionTime)
+    ];
+
     #region Core_Time_Ticker_Methods
     public async IAsyncEnumerable<TimeTickerEntity> QueueTimeTickers(TimeTickerEntity[] timeTickers, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -504,10 +511,9 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
                     UpdatedAt = now
                 };
                 
-                var affectAdded = await context.Upsert(itemToAdd)
-                    .On(x => new { x.ExecutionTime, x.CronTickerId })
-                    .NoUpdate()
-                    .RunAsync(cancellationToken).ConfigureAwait(false);;
+                var affectAdded = await dbContext
+                    .InsertIfAbsentAsync(itemToAdd, OccurrenceUniqueKey, cancellationToken)
+                    .ConfigureAwait(false);
 
                 if (affectAdded <= 0)
                     continue;
