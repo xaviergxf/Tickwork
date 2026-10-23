@@ -18,7 +18,7 @@ namespace Tickwork.Utilities.Infrastructure
     public sealed class InMemoryTickerQueryable<TEntity> : ITickerQueryable<TEntity>
     {
         private readonly Func<CancellationToken, Task<List<TEntity>>> _loader;
-        private readonly Func<IQueryable<TEntity>, IQueryable<TEntity>> _pipeline;
+        private readonly Func<IEnumerable<TEntity>, IEnumerable<TEntity>> _pipeline;
 
         /// <param name="loader">
         /// Async function that loads all candidate entities.
@@ -31,29 +31,38 @@ namespace Tickwork.Utilities.Infrastructure
 
         private InMemoryTickerQueryable(
             Func<CancellationToken, Task<List<TEntity>>> loader,
-            Func<IQueryable<TEntity>, IQueryable<TEntity>> pipeline)
+            Func<IEnumerable<TEntity>, IEnumerable<TEntity>> pipeline)
         {
             _loader = loader;
             _pipeline = pipeline;
         }
 
-        private InMemoryTickerQueryable<TEntity> Append(Func<IQueryable<TEntity>, IQueryable<TEntity>> step)
+        private InMemoryTickerQueryable<TEntity> Append(Func<IEnumerable<TEntity>, IEnumerable<TEntity>> step)
         {
             var currentPipeline = _pipeline;
             return new InMemoryTickerQueryable<TEntity>(_loader, q => step(currentPipeline(q)));
         }
 
         public ITickerQueryable<TEntity> Where(Expression<Func<TEntity, bool>> predicate)
-            => Append(q => q.Where(predicate));
+        {
+            var compiled = predicate.Compile();
+            return Append(q => q.Where(compiled));
+        }
 
         public ITickerQueryable<TEntity> WithRelated(params TickerRelation[] relations)
             => this; // In-memory: relations are already loaded by the loader
 
         public ITickerQueryable<TEntity> OrderBy<TKey>(Expression<Func<TEntity, TKey>> keySelector)
-            => Append(q => q.OrderBy(keySelector));
+        {
+            var compiled = keySelector.Compile();
+            return Append(q => q.OrderBy(compiled));
+        }
 
         public ITickerQueryable<TEntity> OrderByDescending<TKey>(Expression<Func<TEntity, TKey>> keySelector)
-            => Append(q => q.OrderByDescending(keySelector));
+        {
+            var compiled = keySelector.Compile();
+            return Append(q => q.OrderByDescending(compiled));
+        }
 
         public ITickerQueryable<TEntity> Skip(int count)
             => Append(q => q.Skip(count));
@@ -67,19 +76,19 @@ namespace Tickwork.Utilities.Infrastructure
         public async Task<TEntity[]> ToArrayAsync(CancellationToken cancellationToken = default)
         {
             var items = await _loader(cancellationToken).ConfigureAwait(false);
-            return _pipeline(items.AsQueryable()).ToArray();
+            return _pipeline(items).ToArray();
         }
 
         public async Task<TEntity> FirstOrDefaultAsync(CancellationToken cancellationToken = default)
         {
             var items = await _loader(cancellationToken).ConfigureAwait(false);
-            return _pipeline(items.AsQueryable()).FirstOrDefault();
+            return _pipeline(items).FirstOrDefault();
         }
 
         public async Task<int> CountAsync(CancellationToken cancellationToken = default)
         {
             var items = await _loader(cancellationToken).ConfigureAwait(false);
-            return _pipeline(items.AsQueryable()).Count();
+            return _pipeline(items).Count();
         }
 
         public async Task<PaginationResult<TEntity>> ToPaginatedAsync(
@@ -89,7 +98,7 @@ namespace Tickwork.Utilities.Infrastructure
             pageSize = Math.Clamp(pageSize, 1, 1000);
 
             var items = await _loader(cancellationToken).ConfigureAwait(false);
-            var query = _pipeline(items.AsQueryable());
+            var query = _pipeline(items);
 
             var count = query.Count();
             var page = query

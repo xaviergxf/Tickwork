@@ -44,5 +44,6 @@ tmpgen/
 # ReSharper/Rider user settings
 *.DotSettings.user
 
-# Local issue tracking
-tickerq_open_issues.md
+
+# Build outputs: every build here uses --artifacts-path artifacts/...
+artifacts/

@@ -56,12 +56,12 @@ internal class TestableProvider : TickerEfCorePersistenceProvider<TestTickworkDb
 
 public class EfCorePersistenceProviderTests : IAsyncLifetime
 {
-    private SqliteConnection _connection;
-    private TestTickworkDbContext _seedContext;
-    private DbContextOptions<TestTickworkDbContext> _options;
-    private TestableProvider _provider;
-    private ITickerClock _clock;
-    private ITickworkRedisContext _redisContext;
+    private SqliteConnection _connection = null!;
+    private TestTickworkDbContext _seedContext = null!;
+    private DbContextOptions<TestTickworkDbContext> _options = null!;
+    private TestableProvider _provider = null!;
+    private ITickerClock _clock = null!;
+    private ITickworkRedisContext _redisContext = null!;
     private const string NodeId = "test-node-1";
     private DateTime _fixedNow;
 
@@ -121,7 +121,7 @@ public class EfCorePersistenceProviderTests : IAsyncLifetime
         DateTime? executionTime = null,
         TickerStatus status = TickerStatus.Idle,
         string function = "TestFunction",
-        string lockHolder = null,
+        string? lockHolder = null,
         DateTime? lockedAt = null,
         DateTime? updatedAt = null)
     {
@@ -160,7 +160,7 @@ public class EfCorePersistenceProviderTests : IAsyncLifetime
         Guid? id = null,
         DateTime? executionTime = null,
         TickerStatus status = TickerStatus.Idle,
-        string lockHolder = null,
+        string? lockHolder = null,
         DateTime? lockedAt = null,
         DateTime? updatedAt = null)
     {

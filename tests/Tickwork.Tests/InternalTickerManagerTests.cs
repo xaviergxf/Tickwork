@@ -40,7 +40,7 @@ public class InternalTickerManagerTests
         _persistence.GetAllCronTickerExpressions(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Array.Empty<CronTickerEntity>()));
         _persistence.GetEarliestAvailableCronOccurrence(Arg.Any<Guid[]>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<CronTickerOccurrenceEntity<FakeCronTicker>>(null));
+            .Returns(Task.FromResult<CronTickerOccurrenceEntity<FakeCronTicker>>(null!));
         _persistence.GetEarliestTimeTickers(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Array.Empty<TimeTickerEntity>()));
 
@@ -68,7 +68,7 @@ public class InternalTickerManagerTests
     private static (DateTime Next, InternalManagerContext[] Items)? InvokeEarliestCronTickerGroup(
         CronTickerEntity[] cronTickers,
         DateTime now,
-        CronTickerOccurrenceEntity<FakeCronTicker> earliestStored)
+        CronTickerOccurrenceEntity<FakeCronTicker>? earliestStored)
     {
         var managerType = typeof(IInternalTickerManager).Assembly
             .GetType("Tickwork.Utilities.Managers.InternalTickerManager`2")!
@@ -78,7 +78,7 @@ public class InternalTickerManagerTests
             BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);
 
-        var result = method!.Invoke(null, new object[] { cronTickers, now, earliestStored });
+        var result = method!.Invoke(null, new object?[] { cronTickers, now, earliestStored });
         if (result is null) return null;
 
         // Result is a ValueTuple<DateTime, InternalManagerContext[]>
@@ -113,7 +113,7 @@ public class InternalTickerManagerTests
 
     #region Helper: CronTickerEntity factory
 
-    private static CronTickerEntity MakeCron(Guid id, string function, string expression, int retries = 0, int[] retryIntervals = null)
+    private static CronTickerEntity MakeCron(Guid id, string function, string expression, int retries = 0, int[]? retryIntervals = null)
     {
         return new CronTickerEntity
         {
@@ -892,12 +892,12 @@ public class InternalTickerManagerTests
 
         Assert.Equal(2, results.Length);
 
-        var timeResult = Assert.Single(results.Where(r => r.Type == TickerType.TimeTicker));
+        var timeResult = Assert.Single(results, r => r.Type == TickerType.TimeTicker);
         Assert.Equal(timeTickerId, timeResult.TickerId);
         Assert.Equal("TimedOutTimeFunc", timeResult.FunctionName);
         Assert.Equal(1, timeResult.Retries);
 
-        var cronResult = Assert.Single(results.Where(r => r.Type == TickerType.CronTickerOccurrence));
+        var cronResult = Assert.Single(results, r => r.Type == TickerType.CronTickerOccurrence);
         Assert.Equal(cronOccurrenceId, cronResult.TickerId);
         Assert.Equal("TimedOutCronFunc", cronResult.FunctionName);
         Assert.Equal(cronTickerId, cronResult.ParentId);

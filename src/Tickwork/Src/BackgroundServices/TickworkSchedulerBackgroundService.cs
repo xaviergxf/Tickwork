@@ -166,11 +166,7 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
         if (schedulerOptions == null)
             return TimeSpan.FromSeconds(1);
 
-        var prop = schedulerOptions.GetType().GetProperty("MinPollingInterval");
-        if (prop?.PropertyType == typeof(TimeSpan))
-            return (TimeSpan)prop.GetValue(schedulerOptions);
-
-        return TimeSpan.FromSeconds(1);
+        return schedulerOptions.MinPollingInterval;
     }
 
     private async Task ReleaseAllResourcesAsync(Exception ex)

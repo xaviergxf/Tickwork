@@ -95,8 +95,7 @@ public class InternalFunctionContextTests
         Assert.Equal(TickerStatus.Failed, context.Status);
 
         var updated = context.GetPropsToUpdate();
-        Assert.Contains(nameof(InternalFunctionContext.Status), updated);
-        Assert.Equal(1, updated.Count);
+        Assert.Equal(nameof(InternalFunctionContext.Status), Assert.Single(updated));
     }
 
     [Fact]
