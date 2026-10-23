@@ -1,21 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <Nullable>enable</Nullable>
-    <PackageId>Tickwork.Instrumentation.OpenTelemetry</PackageId>
-    <Title>Tickwork OpenTelemetry Instrumentation</Title>
-    <Description>OpenTelemetry instrumentation package for Tickwork job scheduler with distributed tracing support</Description>
-    <PackageTags>$(PackageTags);OpenTelemetry;Tracing;Instrumentation;Distributed</PackageTags>
-  </PropertyGroup>
+    <PropertyGroup>
+        <Nullable>enable</Nullable>
+        <PackageId>Tickwork.Instrumentation.OpenTelemetry</PackageId>
+        <Title>Tickwork OpenTelemetry Instrumentation</Title>
+        <Description>OpenTelemetry tracing for Tickwork jobs. Forked from TickerQ 10.4.0.</Description>
+        <PackageTags>$(PackageTags);OpenTelemetry;Tracing;Instrumentation;Distributed</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="OpenTelemetry" Version="[1.7.0,)" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="[1.7.0,)" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetAbstractionsVersion)" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(DotNetAbstractionsVersion)" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="OpenTelemetry" Version="1.20.1" />
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
+    </ItemGroup>
+
 </Project>

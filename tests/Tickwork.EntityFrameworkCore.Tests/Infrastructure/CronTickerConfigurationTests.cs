@@ -7,9 +7,9 @@ namespace Tickwork.EntityFrameworkCore.Tests.Infrastructure;
 
 public class CronTickerConfigurationTests : IAsyncLifetime
 {
-    private SqliteConnection _connection;
-    private DbContextOptions<TestTickworkDbContext> _options;
-    private TestTickworkDbContext _context;
+    private SqliteConnection _connection = null!;
+    private DbContextOptions<TestTickworkDbContext> _options = null!;
+    private TestTickworkDbContext _context = null!;
 
     public async Task InitializeAsync()
     {

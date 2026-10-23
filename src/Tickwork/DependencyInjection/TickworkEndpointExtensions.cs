@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -19,7 +20,7 @@ namespace Tickwork.DependencyInjection
         /// Registers a ticker function via ITickerFunction (no request payload).
         /// Function name defaults to typeof(T).Name.
         /// </summary>
-        public static TickerFunctionBuilder MapTicker<TFunction>(
+        public static TickerFunctionBuilder MapTicker<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFunction>(
             this IServiceCollection services,
             ServiceLifetime lifetime = ServiceLifetime.Scoped)
             where TFunction : class, ITickerFunction
@@ -35,7 +36,7 @@ namespace Tickwork.DependencyInjection
         /// <summary>
         /// Registers a ticker function via ITickerFunction&lt;TRequest&gt; (with typed request).
         /// </summary>
-        public static TickerFunctionBuilder MapTicker<TFunction, TRequest>(
+        public static TickerFunctionBuilder MapTicker<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFunction, TRequest>(
             this IServiceCollection services,
             ServiceLifetime lifetime = ServiceLifetime.Scoped)
             where TFunction : class, ITickerFunction<TRequest>
@@ -156,7 +157,7 @@ namespace Tickwork.DependencyInjection
 
         #region Internal registration helpers
 
-        internal static TickerFunctionBuilder RegisterTickerFunction<TFunction>(
+        internal static TickerFunctionBuilder RegisterTickerFunction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFunction>(
             IServiceCollection services,
             string groupName,
             string nameOverride,
@@ -178,7 +179,7 @@ namespace Tickwork.DependencyInjection
             return new TickerFunctionBuilder(name);
         }
 
-        internal static TickerFunctionBuilder RegisterTickerFunctionWithRequest<TFunction, TRequest>(
+        internal static TickerFunctionBuilder RegisterTickerFunctionWithRequest<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFunction, TRequest>(
             IServiceCollection services,
             string groupName,
             string nameOverride,
@@ -266,7 +267,7 @@ namespace Tickwork.DependencyInjection
         /// Registers a ticker function (no request) in this group.
         /// Name: "GroupName.ClassName" or "GroupName.CustomName" if overridden.
         /// </summary>
-        public TickerFunctionBuilder MapTicker<TFunction>(string nameOverride = null)
+        public TickerFunctionBuilder MapTicker<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFunction>(string nameOverride = null)
             where TFunction : class, ITickerFunction
         {
             var builder = TickworkEndpointExtensions.RegisterTickerFunction<TFunction>(
@@ -288,7 +289,7 @@ namespace Tickwork.DependencyInjection
         /// <summary>
         /// Registers a ticker function with typed request in this group.
         /// </summary>
-        public TickerFunctionBuilder MapTicker<TFunction, TRequest>(string nameOverride = null)
+        public TickerFunctionBuilder MapTicker<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFunction, TRequest>(string nameOverride = null)
             where TFunction : class, ITickerFunction<TRequest>
         {
             var builder = TickworkEndpointExtensions.RegisterTickerFunctionWithRequest<TFunction, TRequest>(

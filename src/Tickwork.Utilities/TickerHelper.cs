@@ -1,4 +1,5 @@
-﻿using System;
+using System.Diagnostics.CodeAnalysis;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -24,6 +25,11 @@ namespace Tickwork.Utilities
         /// </summary>
         public static bool UseGZipCompression { get; set; } = false;
 
+        // Reflection-based JSON is the fallback when RequestJsonSerializerOptions has no resolver for T.
+        // A trimmed or native AOT application configures RequestJsonSerializerOptions.TypeInfoResolver with a
+        // JsonSerializerContext that covers its request types, or calls the JsonTypeInfo<T> overload.
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Falls back to reflection only when no resolver supplies T; see the comment above.")]
+        [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to reflection only when no resolver supplies T; see the comment above.")]
         public static byte[] CreateTickerRequest<T>(T data)
         {
             // If data is already a byte array, short-circuit where possible
@@ -46,7 +52,9 @@ namespace Tickwork.Utilities
 
             var serialized = data is byte[] bytes
                 ? bytes
-                : JsonSerializer.SerializeToUtf8Bytes(data, RequestJsonSerializerOptions);
+                : RequestJsonSerializerOptions?.TypeInfoResolver?.GetTypeInfo(typeof(T), RequestJsonSerializerOptions) is JsonTypeInfo<T> typeInfo
+                    ? JsonSerializer.SerializeToUtf8Bytes(data, typeInfo)
+                    : JsonSerializer.SerializeToUtf8Bytes(data, RequestJsonSerializerOptions);
 
             if (!UseGZipCompression)
             {
@@ -72,6 +80,11 @@ namespace Tickwork.Utilities
             return returnVal;
         }
 
+        // Reflection-based JSON is the fallback when RequestJsonSerializerOptions has no resolver for T.
+        // A trimmed or native AOT application configures RequestJsonSerializerOptions.TypeInfoResolver with a
+        // JsonSerializerContext that covers its request types, or calls the JsonTypeInfo<T> overload.
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Falls back to reflection only when no resolver supplies T; see the comment above.")]
+        [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to reflection only when no resolver supplies T; see the comment above.")]
         public static T ReadTickerRequest<T>(byte[] gzipBytes)
         {
             if (gzipBytes == null || gzipBytes.Length == 0)

@@ -1,18 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<PackageId>Tickwork.EntityFrameworkCore</PackageId>
-		<Description>Entity Framework Core integration for scheduling and persisting cron/time-based jobs using Tickwork.</Description>
-		<PackageTags>$(PackageTags);efcore;entityframework</PackageTags>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
-	</PropertyGroup>
+    <PropertyGroup>
+        <PackageId>Tickwork.EntityFrameworkCore</PackageId>
+        <Description>Entity Framework Core persistence for Tickwork: time and cron jobs, their occurrences and their history in your own database. Forked from TickerQ 10.4.0, with the same schema.</Description>
+        <PackageTags>$(PackageTags);efcore;entityframework</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<None Include="README.md" Pack="true" PackagePath="" />
-	</ItemGroup>
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(DotNetVersion)" />
-		<ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
-	</ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EfCoreVersion)" />
+        <ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
+    </ItemGroup>
+
 </Project>
