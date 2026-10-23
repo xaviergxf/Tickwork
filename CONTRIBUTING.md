@@ -1,12 +1,12 @@
-# Contributing to TickerQ
+# Contributing to Tickwork
 
-We welcome contributions to TickerQ! Before you start, please read through this guide.
+We welcome contributions to Tickwork! Before you start, please read through this guide.
 
 ## Contributor License Agreement (CLA)
 
 All contributors must sign our [Contributor License Agreement](CLA.md) before their pull request can be merged. This is a one-time process handled automatically via [CLA Assistant](https://cla-assistant.io/) when you open your first pull request.
 
-**Why?** TickerQ is dual-licensed under Apache 2.0 and MIT. The CLA ensures that all contributions can be distributed under these licenses and that the project can continue to evolve.
+**Why?** Tickwork is dual-licensed under Apache 2.0 and MIT. The CLA ensures that all contributions can be distributed under these licenses and that the project can continue to evolve.
 
 ## How to Contribute
 
@@ -45,7 +45,7 @@ dotnet test src/src.sln
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/Arcenox-co/TickerQ/issues) to report bugs or request features. Include steps to reproduce, expected behavior, and actual behavior.
+Use [GitHub Issues](https://github.com/Arcenox-co/Tickwork/issues) to report bugs or request features. Include steps to reproduce, expected behavior, and actual behavior.
 
 ## License
 

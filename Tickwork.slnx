@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/.Solution Items/">
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/Directory.Build.props" />
+    <Project Path="src/Tickwork.EntityFrameworkCore/Tickwork.EntityFrameworkCore.csproj" />
+    <Project Path="src/Tickwork.Instrumentation.OpenTelemetry/Tickwork.Instrumentation.OpenTelemetry.csproj" />
+    <Project Path="src/Tickwork.SourceGenerator/Tickwork.SourceGenerator.csproj" />
+    <Project Path="src/Tickwork.Utilities/Tickwork.Utilities.csproj" />
+    <Project Path="src/Tickwork/Tickwork.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/Directory.Build.props" />
+    <Project Path="tests/Tickwork.EntityFrameworkCore.Tests/Tickwork.EntityFrameworkCore.Tests.csproj" />
+    <Project Path="tests/Tickwork.SourceGenerator.Tests/Tickwork.SourceGenerator.Tests.csproj" />
+    <Project Path="tests/Tickwork.Tests/Tickwork.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <PackageId>Tickwork.Instrumentation.OpenTelemetry</PackageId>
+    <Title>Tickwork OpenTelemetry Instrumentation</Title>
+    <Description>OpenTelemetry instrumentation package for Tickwork job scheduler with distributed tracing support</Description>
+    <PackageTags>$(PackageTags);OpenTelemetry;Tracing;Instrumentation;Distributed</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="[1.7.0,)" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="[1.7.0,)" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetAbstractionsVersion)" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(DotNetAbstractionsVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tickwork.Utilities\Tickwork.Utilities.csproj" />
+  </ItemGroup>
+</Project>

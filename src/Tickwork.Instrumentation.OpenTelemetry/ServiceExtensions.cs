@@ -1,0 +1,28 @@
+using Microsoft.Extensions.DependencyInjection;
+using Tickwork.Utilities;
+using Tickwork.Utilities.Entities;
+using Tickwork.Utilities.Instrumentation;
+
+namespace Tickwork.Instrumentation.OpenTelemetry
+{
+    public static class ServiceExtensions
+    {
+        /// <summary>
+        /// Adds OpenTelemetry instrumentation with activity tracing for Tickwork jobs.
+        /// Also includes standard logging through ILogger.
+        /// </summary>
+        public static TickerOptionsBuilder<TTimeTicker, TCronTicker> AddOpenTelemetryInstrumentation<TTimeTicker, TCronTicker>(
+            this TickerOptionsBuilder<TTimeTicker, TCronTicker> tickerConfiguration)
+            where TTimeTicker : TimeTickerEntity<TTimeTicker>, new()
+            where TCronTicker : CronTickerEntity, new()
+        {
+            tickerConfiguration.ExternalProviderConfigServiceAction += services =>
+            {
+                // Replace any existing instrumentation with OpenTelemetry version
+                services.AddSingleton<ITickworkInstrumentation, OpenTelemetryInstrumentation>();
+            };
+
+            return tickerConfiguration;
+        }
+    }
+}

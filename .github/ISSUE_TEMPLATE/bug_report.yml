@@ -5,8 +5,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: TickerQ & .NET Version
-      placeholder: "e.g. TickerQ 10.2.4 / net10.0"
+      label: Tickwork & .NET Version
+      placeholder: "e.g. Tickwork 10.2.4 / net10.0"
     validations:
       required: true
 
