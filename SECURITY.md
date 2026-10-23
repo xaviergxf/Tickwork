@@ -1,23 +1,13 @@
-# Security Policy
+# Security policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in Tickwork, please report it responsibly.
+Do not open a public issue. Report it privately through GitHub:
+**Security** > **Report a vulnerability** on https://github.com/xaviergxf/Tickwork, with a
+description, the steps to reproduce it and its impact.
 
-**Do not open a public issue.**
-
-Email **contact@tickwork.net** with:
-- Description of the vulnerability
-- Steps to reproduce
-- Impact assessment
-
-We will acknowledge your report within 48 hours and aim to release a fix within 7 days for critical issues.
-
-## Supported Versions
+## Supported versions
 
 | Version | Supported |
 |---------|-----------|
-| 10.x    | Yes       |
-| 9.x     | Yes       |
-| 8.x     | Yes       |
-| < 8.0   | No        |
+| 1.x     | Yes       |

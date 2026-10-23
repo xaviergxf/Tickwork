@@ -1,11 +1,13 @@
 # Tickwork.Utilities
 
-Simple utilities for queuing and executing cron/time-based jobs in the background.  
-Part of the [Tickwork](https://github.com/arcenox/Tickwork) suite by [Arcenox](https://arcenox.com).
+The entities, managers and contracts of [Tickwork](https://github.com/xaviergxf/Tickwork), a
+background job scheduler for .NET: `TimeTickerEntity`, `CronTickerEntity`, `ITimeTickerManager<T>`,
+`ICronTickerManager<T>`, `[TickerFunction]` and `TickerFunctionContext`.
 
----
-
-## 📦 Installation
+Most applications install `Tickwork`, which brings this package with it.
 
 ```bash
 dotnet add package Tickwork.Utilities
+```
+
+Tickwork is forked from TickerQ 10.4.0 by Arcenox LLC and is not affiliated with it. MIT License.
