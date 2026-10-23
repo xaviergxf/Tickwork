@@ -6,7 +6,7 @@ body:
     id: version
     attributes:
       label: Tickwork & .NET Version
-      placeholder: "e.g. Tickwork 10.2.4 / net10.0"
+      placeholder: "e.g. Tickwork 1.0.0 / net10.0"
     validations:
       required: true
 

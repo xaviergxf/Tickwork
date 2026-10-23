@@ -1,52 +1,30 @@
 # Contributing to Tickwork
 
-We welcome contributions to Tickwork! Before you start, please read through this guide.
+Issues and pull requests are welcome.
 
-## Contributor License Agreement (CLA)
+## Development setup
 
-All contributors must sign our [Contributor License Agreement](CLA.md) before their pull request can be merged. This is a one-time process handled automatically via [CLA Assistant](https://cla-assistant.io/) when you open your first pull request.
-
-**Why?** Tickwork is dual-licensed under Apache 2.0 and MIT. The CLA ensures that all contributions can be distributed under these licenses and that the project can continue to evolve.
-
-## How to Contribute
-
-1. **Fork** the repository
-2. **Create a branch** from `main` for your changes
-3. **Make your changes** and ensure the build passes
-4. **Open a pull request** against `main`
-5. **Sign the CLA** when prompted by the CLA Assistant bot
-
-## Development Setup
-
-### Prerequisites
-
-- [.NET 10 SDK](https://dotnet.microsoft.com/download) (or .NET 8/9 depending on your target)
-- PostgreSQL, SQL Server, SQLite, or MySQL (for integration tests)
-- [Node.js 18+](https://nodejs.org/) (for the Node.js SDK)
-
-### Building
+- The .NET SDK named in `global.json` (a .NET 11 SDK; it builds both `net10.0` and `net11.0`).
+- Docker or Podman, for the tests that start PostgreSQL and SQL Server in containers.
 
 ```bash
-dotnet build src/src.sln
-```
-
-### Running Tests
-
-```bash
-dotnet test src/src.sln
+dotnet build Tickwork.slnx
+dotnet test Tickwork.slnx
 ```
 
 ## Guidelines
 
-- Follow existing code style and conventions
-- Add tests for new functionality
-- Keep pull requests focused — one feature or fix per PR
-- Write clear commit messages
+- The build has no warnings; keep it that way.
+- Add a test for every fix and every feature, and see it fail before the change.
+- Do not change the EF Core model: the database must stay the one TickerQ 10.4.0 created. The tests
+  under `ModelPin` fail on any change to a table, column, index or stored enum value.
+- Keep a pull request to one change.
 
-## Reporting Issues
+## Reporting issues
 
-Use [GitHub Issues](https://github.com/Arcenox-co/Tickwork/issues) to report bugs or request features. Include steps to reproduce, expected behavior, and actual behavior.
+Use [GitHub Issues](https://github.com/xaviergxf/Tickwork/issues), with the steps to reproduce, what
+you expected and what happened.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project's [dual license (Apache 2.0 / MIT)](LICENSE), subject to the terms of the [CLA](CLA.md).
+By contributing you agree that your contributions are licensed under the [MIT License](LICENSE).

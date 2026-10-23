@@ -1,0 +1,17 @@
+Tickwork
+Copyright (c) 2026 Xavier Klausener
+
+Tickwork is a fork of TickerQ 10.4.0 by Arcenox LLC, taken at commit
+c6ed1e7 of https://github.com/Arcenox-co/TickerQ.
+
+At that commit TickerQ was dual-licensed under the MIT License and the
+Apache License 2.0, at the recipient's choice:
+Copyright (c) 2025-present Arcenox LLC.
+Tickwork takes it under the MIT License and is distributed under the MIT
+License; see LICENSE, which keeps the original copyright notice.
+
+Tickwork contains no TickerQ code from after commit c6ed1e7.
+
+Tickwork is not affiliated with, endorsed by or sponsored by Arcenox LLC or
+the TickerQ project. "TickerQ" is used here only to identify the origin of
+the code.

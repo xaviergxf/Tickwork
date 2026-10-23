@@ -5,6 +5,9 @@
         <Description>Entity Framework Core persistence for Tickwork: time and cron jobs, their occurrences and their history in your own database. Forked from TickerQ 10.4.0, with the same schema.</Description>
         <PackageTags>$(PackageTags);efcore;entityframework</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <!-- net11.0 depends on EF Core 11, which is a release candidate until it ships; a stable
+             Tickwork package depending on it is deliberate. Remove this when EF Core 11.0.0 is out. -->
+        <NoWarn>$(NoWarn);NU5104</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
