@@ -138,15 +138,33 @@ public class TickerHelperTests : IDisposable
         Assert.Equal(100, result.Value);
     }
 
+    // A row persisted before compression was switched on is plain JSON; reading it used to throw
+    // "The bytes are not GZip compressed." because the setting, not the bytes, decided.
     [Fact]
-    public void ReadTickerRequestAsString_WithCompression_ThrowsForNonGzipBytes()
+    public void ReadTickerRequestAsString_CompressionEnabled_StillReadsPlainBytesPersistedBefore()
     {
+        const string json = """{"legacy":true}""";
+        var plainBytes = Encoding.UTF8.GetBytes(json);
         TickerHelper.UseGZipCompression = true;
-        var plainBytes = Encoding.UTF8.GetBytes("not compressed");
 
-        var ex = Assert.Throws<Exception>(() => TickerHelper.ReadTickerRequestAsString(plainBytes));
+        var result = TickerHelper.ReadTickerRequestAsString(plainBytes);
 
-        Assert.Contains("not GZip compressed", ex.Message);
+        Assert.Equal(json, result);
+    }
+
+    // A row persisted while compression was on is gzip; once compression is switched off it used to be
+    // returned as raw gzip bytes decoded as UTF-8, which no deserializer can read.
+    [Fact]
+    public void ReadTickerRequestAsString_CompressionDisabled_StillReadsGzipBytesPersistedBefore()
+    {
+        const string json = """{"compressed":true}""";
+        TickerHelper.UseGZipCompression = true;
+        var compressedBytes = TickerHelper.CreateTickerRequest(Encoding.UTF8.GetBytes(json));
+        TickerHelper.UseGZipCompression = false;
+
+        var result = TickerHelper.ReadTickerRequestAsString(compressedBytes);
+
+        Assert.Equal(json, result);
     }
 
     #endregion

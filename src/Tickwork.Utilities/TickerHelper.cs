@@ -142,16 +142,12 @@ namespace Tickwork.Utilities
         
         public static string ReadTickerRequestAsString(byte[] gzipBytes)
         {
-            if (!UseGZipCompression)
-            {
-                // When compression is disabled, treat the bytes as plain UTF-8 JSON
+            // The bytes say whether they are compressed, not the current setting: a persisted row
+            // can outlive a change to UseGZipCompression in either direction.
+            var isCompressed = gzipBytes.Length >= GZipSignature.Length &&
+                               gzipBytes.AsSpan()[^GZipSignature.Length..].SequenceEqual(GZipSignature);
+            if (!isCompressed)
                 return Encoding.UTF8.GetString(gzipBytes);
-            }
-
-            if (!gzipBytes.TakeLast(GZipSignature.Length).SequenceEqual(GZipSignature))
-            {
-                throw new Exception("The bytes are not GZip compressed.");
-            }
 
             var compressedBytes = gzipBytes.Take(gzipBytes.Length - GZipSignature.Length).ToArray();
 
