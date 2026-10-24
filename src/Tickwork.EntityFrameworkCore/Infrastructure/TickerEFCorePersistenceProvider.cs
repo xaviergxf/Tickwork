@@ -39,9 +39,12 @@ namespace Tickwork.EntityFrameworkCore.Infrastructure
                         {
                             TickerRelation.Children => query
                                 .Include(x => x.Children),
+                            // Children and grandchildren are two collections: one query, not split
+                            // ones, which EF Core 11 refuses when rows change between the statements.
                             TickerRelation.ChildrenDeep => query
                                 .Include(x => x.Children)
-                                .ThenInclude(x => x.Children),
+                                .ThenInclude(x => x.Children)
+                                .AsSingleQuery(),
                             _ => query
                         };
                     }
@@ -92,11 +95,12 @@ namespace Tickwork.EntityFrameworkCore.Infrastructure
             var baseQuery = dbContext.Set<TTimeTicker>()
                 .Include(x => x.Children)
                 .ThenInclude(x => x.Children)
+                .AsSingleQuery()
                 .AsNoTracking();
-            
+
             if (predicate != null)
                 baseQuery = baseQuery.Where(predicate);
-            
+
             return await baseQuery
                 .Where(x => x.ParentId == null)
                 .OrderByDescending(x => x.ExecutionTime)
@@ -116,11 +120,12 @@ namespace Tickwork.EntityFrameworkCore.Infrastructure
             var baseQuery = dbContext.Set<TTimeTicker>()
                 .Include(x => x.Children)
                 .ThenInclude(x => x.Children)
+                .AsSingleQuery()
                 .AsNoTracking();
-            
+
             if (predicate != null)
                 baseQuery = baseQuery.Where(predicate);
-            
+
             baseQuery = baseQuery
                 .Where(x => x.ParentId == null)
                 .OrderByDescending(x => x.ExecutionTime);
@@ -159,6 +164,7 @@ namespace Tickwork.EntityFrameworkCore.Infrastructure
             var tickersToDelete = await dbContext.Set<TTimeTicker>()
                 .Include(x => x.Children)
                 .ThenInclude(x => x.Children) // Include grandchildren if needed
+                .AsSingleQuery()
                 .Where(x => idList.Contains(x.Id))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
