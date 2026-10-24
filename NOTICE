@@ -10,7 +10,10 @@ Copyright (c) 2025-present Arcenox LLC.
 Tickwork takes it under the MIT License and is distributed under the MIT
 License; see LICENSE, which keeps the original copyright notice.
 
-Tickwork contains no TickerQ code from after commit c6ed1e7.
+Portions of Tickwork 1.1 are adapted from TickerQ commits up to b2aefd0 of
+the same repository, which were dual-licensed under the MIT License and the
+Apache License 2.0 (Copyright (c) 2025-present Arcenox LLC), taken here under
+the MIT License. Tickwork contains no TickerQ code from after commit b2aefd0.
 
 Tickwork is not affiliated with, endorsed by or sponsored by Arcenox LLC or
 the TickerQ project. "TickerQ" is used here only to identify the origin of
