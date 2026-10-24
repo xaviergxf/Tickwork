@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Tickwork.Utilities.Entities;
+using Tickwork.Utilities.Enums;
 using Tickwork.Utilities.Models;
 
 namespace Tickwork.Utilities.Interfaces
@@ -20,6 +21,20 @@ namespace Tickwork.Utilities.Interfaces
         Task<int> UpdateTimeTicker(InternalFunctionContext functionContext, CancellationToken cancellationToken = default);
         Task<byte[]> GetTimeTickerRequest(Guid id, CancellationToken cancellationToken);
         Task UpdateTimeTickersWithUnifiedContext(Guid[] timeTickerIds, InternalFunctionContext functionContext, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Moves to InProgress only the given time tickers that are still Queued and locked by this
+        /// node, and returns the ids that moved. A ticker another node (or this node's fallback) took
+        /// over since it was queued is left alone and not returned, so it is not executed twice.
+        /// The default keeps a provider that does not override it working as before: it updates
+        /// every id, unfenced, and returns them all.
+        /// </summary>
+        async Task<Guid[]> TransitionQueuedTimeTickersToInProgressAsync(Guid[] timeTickerIds, CancellationToken cancellationToken = default)
+        {
+            await UpdateTimeTickersWithUnifiedContext(timeTickerIds,
+                new InternalFunctionContext().SetProperty(x => x.Status, TickerStatus.InProgress),
+                cancellationToken).ConfigureAwait(false);
+            return timeTickerIds;
+        }
         Task<TimeTickerEntity[]> AcquireImmediateTimeTickersAsync(Guid[] ids, CancellationToken cancellationToken = default);
         #endregion
         
@@ -37,6 +52,17 @@ namespace Tickwork.Utilities.Interfaces
         Task ReleaseAcquiredCronTickerOccurrences(Guid[] occurrenceIds, CancellationToken cancellationToken = default);
         Task<byte[]> GetCronTickerOccurrenceRequest(Guid tickerId, CancellationToken cancellationToken = default);
         Task UpdateCronTickerOccurrencesWithUnifiedContext(Guid[] timeTickerIds, InternalFunctionContext functionContext, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Moves to InProgress only the given cron occurrences that are still Queued and locked by this
+        /// node, and returns the ids that moved; see <see cref="TransitionQueuedTimeTickersToInProgressAsync"/>.
+        /// </summary>
+        async Task<Guid[]> TransitionQueuedCronOccurrencesToInProgressAsync(Guid[] occurrenceIds, CancellationToken cancellationToken = default)
+        {
+            await UpdateCronTickerOccurrencesWithUnifiedContext(occurrenceIds,
+                new InternalFunctionContext().SetProperty(x => x.Status, TickerStatus.InProgress),
+                cancellationToken).ConfigureAwait(false);
+            return occurrenceIds;
+        }
         Task ReleaseDeadNodeOccurrenceResources(string instanceIdentifier, CancellationToken cancellationToken = default);
         Task<int> SkipStaleCronOccurrencesAsync(TimeSpan staleThreshold, CancellationToken cancellationToken = default) => Task.FromResult(0);
         #endregion

@@ -94,6 +94,7 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
             .Where(x => x.Status == TickerStatus.Idle || x.Status == TickerStatus.Queued)
             .Where(x => x.ExecutionTime <= fallbackThreshold)  // Only tasks older than 1 second
             .Include(x => x.Children.Where(y => y.ExecutionTime == null))
+            .AsSingleQuery() // children and grandchildren: one query, not split ones
             .Select(MappingExtensions.ForQueueTimeTickers<TTimeTicker>())
             .ToArrayAsync(cancellationToken).ConfigureAwait(false);
 
@@ -154,7 +155,33 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
             .Where(x => idList.Contains(x.Id))
             .ExecuteUpdateAsync(setter => setter.UpdateTimeTicker<TTimeTicker>(functionContext, _clock.UtcNow), cancellationToken).ConfigureAwait(false);
     }
-        
+
+    // A compare-and-set per row: only a ticker this node still holds as Queued moves to InProgress.
+    // The fallback, on this node or another, takes Queued rows that are late, so the plain update by
+    // id let both of them run the same ticker.
+    public async Task<Guid[]> TransitionQueuedTimeTickersToInProgressAsync(Guid[] timeTickerIds, CancellationToken cancellationToken = default)
+    {
+        using var session = await CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var context = session.Context.Set<TTimeTicker>();
+        var now = _clock.UtcNow;
+        var winners = new List<Guid>(timeTickerIds.Length);
+
+        foreach (var id in timeTickerIds.Distinct())
+        {
+            var affected = await context
+                .Where(x => x.Id == id && x.Status == TickerStatus.Queued && x.LockHolder == _lockHolder)
+                .ExecuteUpdateAsync(setter => setter
+                    .SetProperty(x => x.Status, TickerStatus.InProgress)
+                    .SetProperty(x => x.UpdatedAt, now), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (affected == 1)
+                winners.Add(id);
+        }
+
+        return winners.ToArray();
+    }
+
     public async Task<TimeTickerEntity[]> GetEarliestTimeTickers(CancellationToken cancellationToken)
     {
         using var session = await CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
@@ -190,6 +217,7 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
     
         return await baseQuery
             .Include(x => x.Children.Where(y => y.ExecutionTime == null))
+            .AsSingleQuery() // children and grandchildren: one query, not split ones
             .Where(x => x.ExecutionTime >= minSecond && x.ExecutionTime < maxExecutionTime)
             .OrderBy(x => x.ExecutionTime)
             .Select(MappingExtensions.ForQueueTimeTickers<TTimeTicker>())
@@ -262,6 +290,7 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
             .AsNoTracking()
             .Where(x => idList.Contains(x.Id) && x.LockHolder == _lockHolder && x.Status == TickerStatus.InProgress)
             .Include(x => x.Children.Where(y => y.ExecutionTime == null))
+            .AsSingleQuery() // children and grandchildren: one query, not split ones
             .Select(MappingExtensions.ForQueueTimeTickers<TTimeTicker>())
             .ToArrayAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -613,7 +642,31 @@ internal abstract class BasePersistenceProvider<TDbContext, TTimeTicker, TCronTi
             .ExecuteUpdateAsync(setter => setter.UpdateCronTickerOccurrence<TCronTicker>(functionContext), cancellationToken)
             .ConfigureAwait(false);
     }
-    
+
+    // See TransitionQueuedTimeTickersToInProgressAsync.
+    public async Task<Guid[]> TransitionQueuedCronOccurrencesToInProgressAsync(Guid[] occurrenceIds, CancellationToken cancellationToken = default)
+    {
+        using var session = await CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var context = session.Context.Set<CronTickerOccurrenceEntity<TCronTicker>>();
+        var now = _clock.UtcNow;
+        var winners = new List<Guid>(occurrenceIds.Length);
+
+        foreach (var id in occurrenceIds.Distinct())
+        {
+            var affected = await context
+                .Where(x => x.Id == id && x.Status == TickerStatus.Queued && x.LockHolder == _lockHolder)
+                .ExecuteUpdateAsync(setter => setter
+                    .SetProperty(x => x.Status, TickerStatus.InProgress)
+                    .SetProperty(x => x.UpdatedAt, now), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (affected == 1)
+                winners.Add(id);
+        }
+
+        return winners.ToArray();
+    }
+
     public async Task<int> SkipStaleCronOccurrencesAsync(TimeSpan staleThreshold, CancellationToken cancellationToken = default)
     {
         if (staleThreshold <= TimeSpan.Zero)

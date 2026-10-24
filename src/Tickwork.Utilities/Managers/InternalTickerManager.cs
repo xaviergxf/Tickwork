@@ -291,29 +291,25 @@ namespace Tickwork.Utilities.Managers
             return (min.Value, finalWinners);
         }
 
-        public async Task SetTickersInProgress(InternalFunctionContext[] resources, CancellationToken cancellationToken = default)
+        public async Task<InternalFunctionContext[]> SetTickersInProgress(InternalFunctionContext[] resources, CancellationToken cancellationToken = default)
         {
-            var unifiedFunctionContext = new InternalFunctionContext().SetProperty(x => x.Status, TickerStatus.InProgress);
-            
             var cronTickerIds = resources.Where(x => x.Type == TickerType.CronTickerOccurrence).Select(x => x.TickerId).ToArray();
             var timeTickerIds = resources.Where(x => x.Type == TickerType.TimeTicker).Select(x => x.TickerId).ToArray();
 
-            if (cronTickerIds.Length != 0 && timeTickerIds.Length != 0)
-            {
-                var updateCronTickerOccurrencesTask = _persistenceProvider.UpdateCronTickerOccurrencesWithUnifiedContext(cronTickerIds, unifiedFunctionContext, cancellationToken);
-                var updateTimeTickersTask = _persistenceProvider.UpdateTimeTickersWithUnifiedContext(timeTickerIds, unifiedFunctionContext, cancellationToken);
-                await Task.WhenAll(updateCronTickerOccurrencesTask, updateTimeTickersTask).ConfigureAwait(false);
-            }
-            else
-            {
-                if (cronTickerIds.Length != 0)                 
-                    await _persistenceProvider.UpdateCronTickerOccurrencesWithUnifiedContext(cronTickerIds, unifiedFunctionContext, cancellationToken).ConfigureAwait(false);
-            
-                if (timeTickerIds.Length != 0)
-                    await _persistenceProvider.UpdateTimeTickersWithUnifiedContext(timeTickerIds, unifiedFunctionContext, cancellationToken).ConfigureAwait(false);
-            }
-            
-            foreach (var resource in resources)
+            var cronTask = cronTickerIds.Length == 0
+                ? Task.FromResult(Array.Empty<Guid>())
+                : _persistenceProvider.TransitionQueuedCronOccurrencesToInProgressAsync(cronTickerIds, cancellationToken);
+            var timeTask = timeTickerIds.Length == 0
+                ? Task.FromResult(Array.Empty<Guid>())
+                : _persistenceProvider.TransitionQueuedTimeTickersToInProgressAsync(timeTickerIds, cancellationToken);
+            await Task.WhenAll(cronTask, timeTask).ConfigureAwait(false);
+
+            // Only the tickers this node still held as Queued are returned: one the fallback took
+            // over meanwhile, on this node or another, is already running there.
+            var winningIds = new HashSet<Guid>((await cronTask.ConfigureAwait(false)).Concat(await timeTask.ConfigureAwait(false)));
+            var winners = resources.Where(x => winningIds.Contains(x.TickerId)).ToArray();
+
+            foreach (var resource in winners)
             {
                 resource.Status = TickerStatus.InProgress;
                 
@@ -322,6 +318,8 @@ namespace Tickwork.Utilities.Managers
                 else
                     await _notificationHubSender.UpdateCronOccurrenceFromInternalFunctionContext<TCronTicker>(resource).ConfigureAwait(false);
             }
+
+            return winners;
         }
 
         public async Task ReleaseAcquiredResources(InternalFunctionContext[] resources, CancellationToken cancellationToken = default)

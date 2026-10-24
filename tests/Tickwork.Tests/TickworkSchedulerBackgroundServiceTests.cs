@@ -20,6 +20,9 @@ public class TickworkSchedulerBackgroundServiceTests
     {
         var executionContext = new TickerExecutionContext();
         var internalManager = Substitute.For<IInternalTickerManager>();
+        // This node still holds every ticker it queued.
+        internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<InternalFunctionContext[]>());
         internalManager.GetNextTickers(Arg.Any<CancellationToken>())
             .Returns((TimeSpan.Zero, Array.Empty<InternalFunctionContext>()));
 
@@ -79,6 +82,9 @@ public class TickworkSchedulerBackgroundServiceTests
     {
         var executionContext = new TickerExecutionContext();
         var internalManager = Substitute.For<IInternalTickerManager>();
+        // This node still holds every ticker it queued.
+        internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<InternalFunctionContext[]>());
         var taskHandler = Substitute.For<ITickerExecutionTaskHandler>();
         var taskScheduler = Substitute.For<ITickworkTaskScheduler>();
         var gate = new TickerFunctionConcurrencyGate();
@@ -155,6 +161,9 @@ public class TickworkSchedulerBackgroundServiceTests
     {
         var executionContext = new TickerExecutionContext();
         var internalManager = Substitute.For<IInternalTickerManager>();
+        // This node still holds every ticker it queued.
+        internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<InternalFunctionContext[]>());
         var taskHandler = Substitute.For<ITickerExecutionTaskHandler>();
         var taskScheduler = Substitute.For<ITickworkTaskScheduler>();
         var gate = new TickerFunctionConcurrencyGate();
@@ -218,6 +227,9 @@ public class TickworkSchedulerBackgroundServiceTests
     {
         var executionContext = new TickerExecutionContext();
         var internalManager = Substitute.For<IInternalTickerManager>();
+        // This node still holds every ticker it queued.
+        internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<InternalFunctionContext[]>());
         var taskHandler = Substitute.For<ITickerExecutionTaskHandler>();
         var taskScheduler = Substitute.For<ITickworkTaskScheduler>();
         var gate = new TickerFunctionConcurrencyGate();

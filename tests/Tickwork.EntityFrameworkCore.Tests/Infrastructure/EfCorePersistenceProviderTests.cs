@@ -1286,4 +1286,69 @@ public class EfCorePersistenceProviderTests : IAsyncLifetime
         Assert.Single(results);
         Assert.Equal(acquirable.Id, results[0].Id);
     }
+
+    // =========================================================================
+    // Queued -> InProgress is a compare-and-set on this node's lock
+    // =========================================================================
+
+    // Called through the interface, as the scheduler's manager calls it.
+    private ITickerPersistenceProvider<TimeTickerEntity, CronTickerEntity> Persistence => _provider;
+
+    [Fact]
+    public async Task TransitionQueuedTimeTickers_Moves_A_Ticker_This_Node_Still_Holds_As_Queued()
+    {
+        var ticker = CreateTimeTicker(executionTime: _fixedNow, status: TickerStatus.Queued,
+            lockHolder: NodeId, lockedAt: _fixedNow);
+        await SeedTimeTickers(ticker);
+
+        var moved = await Persistence.TransitionQueuedTimeTickersToInProgressAsync([ticker.Id], CancellationToken.None);
+
+        Assert.Equal([ticker.Id], moved);
+        using var ctx = CreateVerifyContext();
+        var stored = await ctx.Set<TimeTickerEntity>().AsNoTracking().FirstAsync(t => t.Id == ticker.Id);
+        Assert.Equal(TickerStatus.InProgress, stored.Status);
+        Assert.Equal(NodeId, stored.LockHolder);
+    }
+
+    // The bug: the scheduler queued a ticker, woke up late, and the fallback - on this node - had
+    // already taken the late Queued row and was running it. The scheduler then marked it InProgress
+    // by id and ran it a second time.
+    [Fact]
+    public async Task TransitionQueuedTimeTickers_Leaves_A_Ticker_The_Fallback_Took_While_It_Was_Queued()
+    {
+        var ticker = CreateTimeTicker(executionTime: _fixedNow);
+        await SeedTimeTickers(ticker);
+        var queued = await ToListAsync(Persistence.QueueTimeTickers([ticker], CancellationToken.None));
+        Assert.Single(queued);
+
+        _clock.UtcNow.Returns(_fixedNow.AddSeconds(5));
+        var takenByFallback = await ToListAsync(Persistence.QueueTimedOutTimeTickers(CancellationToken.None));
+        Assert.Single(takenByFallback);
+
+        var moved = await Persistence.TransitionQueuedTimeTickersToInProgressAsync([ticker.Id], CancellationToken.None);
+
+        Assert.Empty(moved);
+    }
+
+    // The same race across nodes: another node's fallback holds the occurrence this node queued.
+    [Fact]
+    public async Task TransitionQueuedCronOccurrences_Leaves_An_Occurrence_Another_Node_Holds()
+    {
+        var cron = CreateCronTicker();
+        await SeedCronTickers(cron);
+        var held = CreateCronOccurrence(cron.Id, executionTime: _fixedNow, status: TickerStatus.Queued,
+            lockHolder: NodeId, lockedAt: _fixedNow);
+        var takenOver = CreateCronOccurrence(cron.Id, executionTime: _fixedNow.AddMinutes(-1),
+            status: TickerStatus.InProgress, lockHolder: "other-node", lockedAt: _fixedNow);
+        await SeedCronOccurrences(held, takenOver);
+
+        var moved = await Persistence.TransitionQueuedCronOccurrencesToInProgressAsync(
+            [held.Id, takenOver.Id], CancellationToken.None);
+
+        Assert.Equal([held.Id], moved);
+        using var ctx = CreateVerifyContext();
+        var stored = await ctx.Set<CronTickerOccurrenceEntity<CronTickerEntity>>().AsNoTracking()
+            .FirstAsync(o => o.Id == takenOver.Id);
+        Assert.Equal("other-node", stored.LockHolder);
+    }
 }
