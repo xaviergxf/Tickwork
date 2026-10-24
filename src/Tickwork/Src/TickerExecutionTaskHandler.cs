@@ -250,7 +250,7 @@ internal class TickerExecutionTaskHandler : ITickerExecutionTaskHandler
                 await _internalTickerManager.UpdateTickerAsync(context, cancellationToken);
                 
                 // Clean up and exit early on cancellation
-                TickerCancellationTokenManager.RemoveTickerCancellationToken(context.TickerId);
+                ReleaseCancellation(context.TickerId, cancellationTokenSource);
                 return;
             }
             catch (TerminateExecutionException ex)
@@ -279,7 +279,7 @@ internal class TickerExecutionTaskHandler : ITickerExecutionTaskHandler
                 await _internalTickerManager.UpdateTickerAsync(context, cancellationToken);
 
                 // Clean up and exit early on termination
-                TickerCancellationTokenManager.RemoveTickerCancellationToken(context.TickerId);
+                ReleaseCancellation(context.TickerId, cancellationTokenSource);
                 return;
             }
             catch (SdkOfflineSkipException ex)
@@ -300,7 +300,7 @@ internal class TickerExecutionTaskHandler : ITickerExecutionTaskHandler
 
                 await _internalTickerManager.UpdateTickerAsync(context, cancellationToken);
 
-                TickerCancellationTokenManager.RemoveTickerCancellationToken(context.TickerId);
+                ReleaseCancellation(context.TickerId, cancellationTokenSource);
                 return;
             }
             catch (Exception ex)
@@ -367,8 +367,16 @@ internal class TickerExecutionTaskHandler : ITickerExecutionTaskHandler
         }
 
 
-        // Clean up: RemoveTickerCancellationToken handles disposal of the CTS
-        TickerCancellationTokenManager.RemoveTickerCancellationToken(context.TickerId);
+        ReleaseCancellation(context.TickerId, cancellationTokenSource);
+    }
+
+    // Removes this execution's own registration and disposes its source. When the registration
+    // belongs to another execution of the same id - or this one was never registered because that
+    // one was already in flight - only this execution's source is disposed.
+    private static void ReleaseCancellation(Guid tickerId, CancellationTokenSource cancellationTokenSource)
+    {
+        if (!TickerCancellationTokenManager.RemoveTickerCancellationToken(tickerId, cancellationTokenSource))
+            cancellationTokenSource.Dispose();
     }
 
     private async Task<bool> WaitForRetry(InternalFunctionContext context, CancellationToken cancellationToken,

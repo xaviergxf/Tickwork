@@ -12,7 +12,11 @@ namespace Tickwork.Utilities
         private static readonly ConcurrentDictionary<Guid, TickerCancellationTokenDetails>  TickerCancellationTokens = new();
         private static readonly ConcurrentDictionary<Guid, ConcurrentHashSet<Guid>> ParentIdIndex = new();
 
-        internal static void AddTickerCancellationToken(CancellationTokenSource cancellationSource, InternalFunctionContext context, bool isDue)
+        /// <summary>
+        /// Registers the execution's source under its ticker id. Returns false, and indexes nothing,
+        /// when the id is already registered: the execution already in flight keeps sole ownership.
+        /// </summary>
+        internal static bool AddTickerCancellationToken(CancellationTokenSource cancellationSource, InternalFunctionContext context, bool isDue)
         {
             var details = new TickerCancellationTokenDetails
             {
@@ -22,9 +26,10 @@ namespace Tickwork.Utilities
                 IsDue = isDue,
                 ParentId = context.ParentId ?? Guid.Empty
             };
-            
-            TickerCancellationTokens.TryAdd(context.TickerId, details);
-            
+
+            if (!TickerCancellationTokens.TryAdd(context.TickerId, details))
+                return false;
+
             // Add to parent index for fast lookup if parentId exists
             if (context.ParentId.HasValue && context.ParentId.Value != Guid.Empty)
             {
@@ -32,8 +37,41 @@ namespace Tickwork.Utilities
                     key => { var set = new ConcurrentHashSet<Guid>(); set.Add(context.TickerId); return set; },
                     (key, existing) => { existing.Add(context.TickerId); return existing; });
             }
+
+            return true;
         }
-        
+
+        /// <summary>
+        /// Owner-side removal: removes the entry only while it still holds <paramref name="ownedSource"/>,
+        /// then disposes that source. An execution that ends can never remove or dispose the
+        /// registration of another execution under the same id.
+        /// </summary>
+        internal static bool RemoveTickerCancellationToken(Guid tickerId, CancellationTokenSource ownedSource)
+        {
+            if (!TickerCancellationTokens.TryGetValue(tickerId, out var details)
+                || !ReferenceEquals(details.CancellationSource, ownedSource))
+                return false;
+
+            // Compare-and-remove on the exact pair, so a concurrent re-registration is left alone.
+            if (!((ICollection<KeyValuePair<Guid, TickerCancellationTokenDetails>>)TickerCancellationTokens)
+                    .Remove(new KeyValuePair<Guid, TickerCancellationTokenDetails>(tickerId, details)))
+                return false;
+
+            try
+            {
+                details.CancellationSource?.Dispose();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+
+            if (details.ParentId != Guid.Empty)
+                RemoveFromParentIndex(details.ParentId, tickerId);
+
+            return true;
+        }
+
         internal static bool RemoveTickerCancellationToken(Guid tickerId)
         {
             var removed = TickerCancellationTokens.TryRemove(tickerId, out var details);
@@ -95,36 +133,20 @@ namespace Tickwork.Utilities
 
         public static bool RequestTickerCancellationById(Guid tickerId)
         {
-            // Cancel while the entry is still tracked so IsParentRunning remains accurate
+            // Signal only - never remove or dispose here. The execution that owns the source removes
+            // and disposes it when it ends. Disposing it here as well broke the execution still using
+            // its token (ObjectDisposedException in place of a cancellation), and dropped the entry
+            // while the execution was still running, so IsParentRunning reported it gone.
             if (!TickerCancellationTokens.TryGetValue(tickerId, out var details))
                 return false;
 
-            // Signal cancellation while the entry is still tracked
             try
             {
                 details.CancellationSource?.Cancel();
             }
             catch (ObjectDisposedException)
             {
-                // Already disposed by another thread - safe to ignore
-            }
-
-            // Now remove and dispose
-            if (TickerCancellationTokens.TryRemove(tickerId, out var removed))
-            {
-                try
-                {
-                    removed.CancellationSource?.Dispose();
-                }
-                catch
-                {
-                    // Ignore disposal errors
-                }
-
-                if (removed.ParentId != Guid.Empty)
-                {
-                    RemoveFromParentIndex(removed.ParentId, tickerId);
-                }
+                // The owner disposed it concurrently: the execution is already ending.
             }
 
             return true;
