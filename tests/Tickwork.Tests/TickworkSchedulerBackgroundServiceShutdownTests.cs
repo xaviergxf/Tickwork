@@ -281,6 +281,96 @@ public class TickworkSchedulerBackgroundServiceShutdownTests
         }
     }
 
+    // The bug (1.1.0): Dispose disposed the acquisition gate while the loop was inside it, so the
+    // loop's release threw ObjectDisposedException and was reported as a host exception.
+    [Fact]
+    public async Task Disposing_During_An_Acquisition_Lets_The_Loop_Leave_The_Gate_Without_An_Error()
+    {
+        var context = new InternalFunctionContext
+        {
+            TickerId = Guid.NewGuid(),
+            Type = TickerType.TimeTicker,
+            FunctionName = "dispose-during-acquisition"
+        };
+        _executionContext.SetFunctions([context]);
+
+        var acquisitionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishAcquisition = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                acquisitionStarted.TrySetResult();
+                await finishAcquisition.Task;
+                return new[] { context };
+            });
+
+        var hostExceptions = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        _executionContext.NotifyCoreAction += (value, type) =>
+        {
+            if (type == CoreNotifyActionType.NotifyHostExceptionMessage)
+                hostExceptions.Enqueue((string)value);
+        };
+
+        var service = CreateService();
+        await service.StartAsync(CancellationToken.None);
+        await acquisitionStarted.Task.WaitAsync(HangGuard);
+
+        service.Dispose();
+        finishAcquisition.TrySetResult();
+
+        // The loop ends on the cancellation Dispose signalled; how it ends is not the point.
+        await Record.ExceptionAsync(() => service.ExecuteTask!.WaitAsync(HangGuard));
+
+        Assert.DoesNotContain(hostExceptions, message => message.Contains(nameof(ObjectDisposedException)));
+    }
+
+    // The bug (1.1.0): a stop whose token was cancelled - the host gave up waiting - threw from the
+    // gate's wait and returned without freezing the scheduler or stopping the loop.
+    [Fact]
+    public async Task A_Stop_That_Is_Cancelled_While_An_Acquisition_Is_In_Flight_Still_Freezes_And_Stops_The_Loop()
+    {
+        var context = new InternalFunctionContext
+        {
+            TickerId = Guid.NewGuid(),
+            Type = TickerType.TimeTicker,
+            FunctionName = "cancelled-stop"
+        };
+        _executionContext.SetFunctions([context]);
+
+        var acquisitionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishAcquisition = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                acquisitionStarted.TrySetResult();
+                await finishAcquisition.Task;
+                return new[] { context };
+            });
+
+        var service = CreateService();
+        try
+        {
+            await service.StartAsync(CancellationToken.None);
+            await acquisitionStarted.Task.WaitAsync(HangGuard);
+
+            var exception = await Record.ExceptionAsync(
+                () => service.StopAsync(new CancellationToken(canceled: true)).WaitAsync(HangGuard));
+
+            Assert.Null(exception);
+            _taskScheduler.Received(1).Freeze();
+            Assert.False(service.IsRunning);
+
+            finishAcquisition.TrySetResult();
+            await Record.ExceptionAsync(() => service.ExecuteTask!.WaitAsync(HangGuard));
+            Assert.True(service.ExecuteTask!.IsCompleted);
+        }
+        finally
+        {
+            finishAcquisition.TrySetResult();
+            service.Dispose();
+        }
+    }
+
     // The bug: every ticker the loop had queued was run, even one the fallback had taken over in the
     // meantime and was already running.
     [Fact]

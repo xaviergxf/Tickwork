@@ -2,7 +2,7 @@
 
     <!-- Package metadata shared by every project. -->
     <PropertyGroup>
-        <Version>1.1.0</Version>
+        <Version>1.1.1</Version>
         <Authors>Xavier Klausener</Authors>
         <Company>Xavier Klausener</Company>
         <Product>Tickwork</Product>
@@ -13,7 +13,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageProjectUrl>https://github.com/xaviergxf/Tickwork</PackageProjectUrl>
         <PackageTags>tickwork;scheduler;cron;background-jobs;jobs;queue;time;fire-and-forget</PackageTags>
-        <PackageReleaseNotes>1.1.0 - reliability fixes, same database schema. A ticker the fallback took over while it was queued is no longer run a second time (Queued to InProgress is a compare-and-set on the node's lock). Stopping the host no longer freezes the task scheduler between acquiring tickers and queueing them. A cancellation request no longer disposes the source of the execution still running, and an ending execution no longer removes a newer registration of the same ticker. Requests persisted before compression was switched on or off are read either way. The EF Core queries that load children and grandchildren run as one query (AsSingleQuery), which removes warning 20504. README: the generic host's UseTickwork, and the SQLite schema warning. Adapted from TickerQ fixes up to b2aefd0.</PackageReleaseNotes>
+        <PackageReleaseNotes>1.1.1 - fixes a 1.1.0 regression in stopping the host. The scheduler's StopAsync no longer throws ObjectDisposedException when the host is stopped after it was disposed (as a WebApplicationFactory harness does at teardown), and tolerates being called more than once and concurrently. A stop whose token is cancelled still freezes the scheduler and stops the loop instead of throwing. Disposing while the loop is acquiring tickers no longer reports an ObjectDisposedException as a host exception. 1.1.0 -reliability fixes, same database schema. A ticker the fallback took over while it was queued is no longer run a second time (Queued to InProgress is a compare-and-set on the node's lock). Stopping the host no longer freezes the task scheduler between acquiring tickers and queueing them. A cancellation request no longer disposes the source of the execution still running, and an ending execution no longer removes a newer registration of the same ticker. Requests persisted before compression was switched on or off are read either way. The EF Core queries that load children and grandchildren run as one query (AsSingleQuery), which removes warning 20504. README: the generic host's UseTickwork, and the SQLite schema warning. Adapted from TickerQ fixes up to b2aefd0.</PackageReleaseNotes>
     </PropertyGroup>
 
     <!-- LICENSE and NOTICE travel in every package. -->
