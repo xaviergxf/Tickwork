@@ -253,15 +253,30 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
     {
         // No acquisition starts once stopping is set, and the freeze waits for one in flight to
         // finish queueing what it acquired.
+        // Like BackgroundService.StopAsync, this tolerates being called after Dispose, more than once
+        // and concurrently, and a cancelled token only ends the wait: the scheduler is frozen and the
+        // loop stopped either way. A ticker an abandoned acquisition moved to InProgress stays under
+        // this node's lock and is released when the node starts again.
         Interlocked.Exchange(ref _stopping, 1);
-        await _acquisitionPublicationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var entered = false;
+        try
+        {
+            await _acquisitionPublicationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            entered = true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The host stopped waiting for the acquisition in flight.
+        }
+
         try
         {
             _taskScheduler.Freeze();
         }
         finally
         {
-            _acquisitionPublicationGate.Release();
+            if (entered)
+                _acquisitionPublicationGate.Release();
         }
         Interlocked.Exchange(ref _started, 0);
         await base.StopAsync(cancellationToken);
@@ -270,7 +285,9 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
     public override void Dispose()
     {
         _restartThrottle.Dispose();
-        _acquisitionPublicationGate.Dispose();
+        // The acquisition gate is deliberately not disposed: StopAsync may run after Dispose, and the
+        // loop may still be inside the gate when Dispose cancels it. A SemaphoreSlim whose
+        // AvailableWaitHandle is never read holds nothing that disposing would release.
         base.Dispose();
     }
 }
