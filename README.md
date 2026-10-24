@@ -9,7 +9,8 @@ Entity Framework Core.
 Tickwork targets **.NET 10** and **.NET 11** and is distributed under the MIT License.
 
 It is a fork of [TickerQ](https://github.com/Arcenox-co/TickerQ) 10.4.0 by Arcenox LLC, taken at
-commit `c6ed1e7`, when TickerQ was MIT / Apache-2.0. Tickwork keeps the scheduler, the EF Core
+commit `c6ed1e7`, when TickerQ was MIT / Apache-2.0; 1.1 adds reliability fixes adapted from
+TickerQ commits up to `b2aefd0`, still under those licences. Tickwork keeps the scheduler, the EF Core
 provider, the source generator and the OpenTelemetry instrumentation; it does not carry the
 dashboard, the Redis provider or the hub. Tickwork is not affiliated with or endorsed by Arcenox
 LLC or the TickerQ project. See [NOTICE](NOTICE).
@@ -70,6 +71,17 @@ public class Jobs
 }
 ```
 
+`UseTickwork` extends `IHost`, so a worker or console app on the generic host calls it the same way:
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddTickwork();
+
+var host = builder.Build();
+host.UseTickwork();
+await host.RunAsync();
+```
+
 To keep jobs in a database, add the EF Core store. With Tickwork's own context:
 
 ```csharp
@@ -83,7 +95,9 @@ builder.Services.AddTickwork(options =>
 
 or inside your application's own `DbContext`, with
 `ef.UseApplicationDbContext<AppDbContext>(ConfigurationType.UseModelCustomizer)`. The tables live
-in the `ticker` schema unless you set another with `SetSchema`.
+in the `ticker` schema unless you set another with `SetSchema`. SQLite has no schemas: there EF Core
+ignores the schema and logs warning 30000 (`SchemaConfiguredWarning`) for each table, which is
+expected and harmless.
 
 ## Moving from TickerQ 10.4
 
