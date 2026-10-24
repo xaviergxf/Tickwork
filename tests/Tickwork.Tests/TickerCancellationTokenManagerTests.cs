@@ -119,6 +119,58 @@ public class TickerCancellationTokenManagerTests : IDisposable
         Assert.True(wasTrackedDuringCancel, "the entry should still be in the dictionary when Cancel fires");
     }
 
+    // The bug: a cancellation request also removed and disposed the source while the execution was
+    // still running - its next read of the token threw ObjectDisposedException instead of observing
+    // a cancellation, and IsParentRunning said the occurrence had stopped while it still ran.
+    [Fact]
+    public void RequestCancellationById_Leaves_The_Source_To_The_Execution_That_Owns_It()
+    {
+        var parentId = Guid.NewGuid();
+        var tickerId = Guid.NewGuid();
+        var cts = new CancellationTokenSource();
+        TickerCancellationTokenManager.AddTickerCancellationToken(cts, MakeContext(tickerId, parentId), isDue: false);
+
+        TickerCancellationTokenManager.RequestTickerCancellationById(tickerId);
+
+        Assert.True(cts.Token.IsCancellationRequested);
+        Assert.True(TickerCancellationTokenManager.IsParentRunning(parentId));
+
+        Assert.True(TickerCancellationTokenManager.RemoveTickerCancellationToken(tickerId, cts));
+        Assert.False(TickerCancellationTokenManager.IsParentRunning(parentId));
+    }
+
+    // The bug: an execution that ended removed whatever was registered under its id, including the
+    // registration of a newer execution of the same ticker, whose source it then disposed.
+    [Fact]
+    public void An_Ending_Execution_Does_Not_Remove_A_Newer_Registration_Of_The_Same_Id()
+    {
+        var tickerId = Guid.NewGuid();
+        var older = new CancellationTokenSource();
+        var newer = new CancellationTokenSource();
+        TickerCancellationTokenManager.AddTickerCancellationToken(newer, MakeContext(tickerId), isDue: false);
+
+        var removed = TickerCancellationTokenManager.RemoveTickerCancellationToken(tickerId, older);
+
+        Assert.False(removed);
+        Assert.True(TickerCancellationTokenManager.RequestTickerCancellationById(tickerId));
+        Assert.True(newer.Token.IsCancellationRequested);
+    }
+
+    [Fact]
+    public void A_Second_Registration_Of_An_Id_In_Flight_Is_Refused_And_Indexes_Nothing()
+    {
+        var tickerId = Guid.NewGuid();
+        var firstParent = Guid.NewGuid();
+        var secondParent = Guid.NewGuid();
+        TickerCancellationTokenManager.AddTickerCancellationToken(new CancellationTokenSource(), MakeContext(tickerId, firstParent), isDue: false);
+
+        var added = TickerCancellationTokenManager.AddTickerCancellationToken(
+            new CancellationTokenSource(), MakeContext(tickerId, secondParent), isDue: false);
+
+        Assert.False(added);
+        Assert.False(TickerCancellationTokenManager.IsParentRunning(secondParent));
+    }
+
     private static InternalFunctionContext MakeContext(Guid tickerId, Guid? parentId = null)
     {
         return new InternalFunctionContext
