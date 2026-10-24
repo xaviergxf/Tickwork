@@ -235,8 +235,32 @@ namespace Tickwork.Provider
                     TimeTickers.TryUpdate(id, updatedTicker, ticker);
                 }
             }
-            
+
             return Task.CompletedTask;
+        }
+
+        // A compare-and-set per ticker: only one this node still holds as Queued moves to InProgress,
+        // so a ticker the fallback took over since it was queued is not executed a second time.
+        public Task<Guid[]> TransitionQueuedTimeTickersToInProgressAsync(Guid[] timeTickerIds, CancellationToken cancellationToken = default)
+        {
+            var now = _clock.UtcNow;
+            var winners = new List<Guid>(timeTickerIds.Length);
+
+            foreach (var id in timeTickerIds.Distinct())
+            {
+                if (!TimeTickers.TryGetValue(id, out var ticker) ||
+                    ticker.Status != TickerStatus.Queued || ticker.LockHolder != _lockHolder)
+                    continue;
+
+                var updatedTicker = CloneTicker(ticker);
+                updatedTicker.Status = TickerStatus.InProgress;
+                updatedTicker.UpdatedAt = now;
+
+                if (TimeTickers.TryUpdate(id, updatedTicker, ticker))
+                    winners.Add(id);
+            }
+
+            return Task.FromResult(winners.ToArray());
         }
 
         public Task<TimeTickerEntity[]> AcquireImmediateTimeTickersAsync(Guid[] ids, CancellationToken cancellationToken = default)
@@ -850,8 +874,31 @@ namespace Tickwork.Provider
                     CronOccurrences.TryUpdate(id, updatedOccurrence, occurrence);
                 }
             }
-            
+
             return Task.CompletedTask;
+        }
+
+        // See TransitionQueuedTimeTickersToInProgressAsync.
+        public Task<Guid[]> TransitionQueuedCronOccurrencesToInProgressAsync(Guid[] occurrenceIds, CancellationToken cancellationToken = default)
+        {
+            var now = _clock.UtcNow;
+            var winners = new List<Guid>(occurrenceIds.Length);
+
+            foreach (var id in occurrenceIds.Distinct())
+            {
+                if (!CronOccurrences.TryGetValue(id, out var occurrence) ||
+                    occurrence.Status != TickerStatus.Queued || occurrence.LockHolder != _lockHolder)
+                    continue;
+
+                var updatedOccurrence = CloneCronOccurrence(occurrence);
+                updatedOccurrence.Status = TickerStatus.InProgress;
+                updatedOccurrence.UpdatedAt = now;
+
+                if (CronOccurrences.TryUpdate(id, updatedOccurrence, occurrence))
+                    winners.Add(id);
+            }
+
+            return Task.FromResult(winners.ToArray());
         }
 
         public Task ReleaseDeadNodeOccurrenceResources(string instanceIdentifier, CancellationToken cancellationToken = default)

@@ -660,34 +660,22 @@ public class InternalTickerManagerTests
     // 3. SetTickersInProgress
     // ====================================================================
 
+    // The bug: every queued ticker was marked InProgress by id and returned to be run, even one the
+    // fallback had taken over since it was queued - so the same ticker ran twice.
     [Fact]
-    public async Task SetTickersInProgress_SetsStatusToInProgress_OnPersistenceProvider()
+    public async Task SetTickersInProgress_Does_Not_Return_A_Ticker_This_Node_No_Longer_Holds()
     {
-        var timeTickerId = Guid.NewGuid();
-        var resources = new[]
-        {
-            new InternalFunctionContext
-            {
-                TickerId = timeTickerId,
-                Type = TickerType.TimeTicker,
-                FunctionName = "Func1"
-            }
-        };
+        var held = new InternalFunctionContext { TickerId = Guid.NewGuid(), Type = TickerType.TimeTicker, FunctionName = "Held" };
+        var takenOver = new InternalFunctionContext { TickerId = Guid.NewGuid(), Type = TickerType.TimeTicker, FunctionName = "TakenOver" };
 
-        _persistence.UpdateTimeTickersWithUnifiedContext(
-                Arg.Any<Guid[]>(),
-                Arg.Any<InternalFunctionContext>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
+        _persistence.TransitionQueuedTimeTickersToInProgressAsync(Arg.Any<Guid[]>(), Arg.Any<CancellationToken>())
+            .Returns([held.TickerId]);
 
-        await _manager.SetTickersInProgress(resources, CancellationToken.None);
+        var acquired = await _manager.SetTickersInProgress([held, takenOver], CancellationToken.None);
 
-        await _persistence.Received(1).UpdateTimeTickersWithUnifiedContext(
-            Arg.Is<Guid[]>(ids => ids.Length == 1 && ids[0] == timeTickerId),
-            Arg.Is<InternalFunctionContext>(ctx => ctx.Status == TickerStatus.InProgress),
-            Arg.Any<CancellationToken>());
-
-        Assert.Equal(TickerStatus.InProgress, resources[0].Status);
+        Assert.Equal([held], acquired);
+        Assert.Equal(TickerStatus.InProgress, held.Status);
+        Assert.NotEqual(TickerStatus.InProgress, takenOver.Status);
     }
 
     [Fact]
@@ -711,30 +699,27 @@ public class InternalTickerManagerTests
             }
         };
 
-        _persistence.UpdateTimeTickersWithUnifiedContext(
-                Arg.Any<Guid[]>(), Arg.Any<InternalFunctionContext>(), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
-        _persistence.UpdateCronTickerOccurrencesWithUnifiedContext(
-                Arg.Any<Guid[]>(), Arg.Any<InternalFunctionContext>(), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
+        _persistence.TransitionQueuedTimeTickersToInProgressAsync(Arg.Any<Guid[]>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Guid[]>());
+        _persistence.TransitionQueuedCronOccurrencesToInProgressAsync(Arg.Any<Guid[]>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Guid[]>());
 
-        await _manager.SetTickersInProgress(resources, CancellationToken.None);
+        var acquired = await _manager.SetTickersInProgress(resources, CancellationToken.None);
 
         // Both persistence calls should have been made (the WhenAll branch)
-        await _persistence.Received(1).UpdateTimeTickersWithUnifiedContext(
+        await _persistence.Received(1).TransitionQueuedTimeTickersToInProgressAsync(
             Arg.Is<Guid[]>(ids => ids.Length == 1 && ids[0] == timeTickerId),
-            Arg.Any<InternalFunctionContext>(),
             Arg.Any<CancellationToken>());
-        await _persistence.Received(1).UpdateCronTickerOccurrencesWithUnifiedContext(
+        await _persistence.Received(1).TransitionQueuedCronOccurrencesToInProgressAsync(
             Arg.Is<Guid[]>(ids => ids.Length == 1 && ids[0] == cronOccurrenceId),
-            Arg.Any<InternalFunctionContext>(),
             Arg.Any<CancellationToken>());
 
+        Assert.Equal(resources, acquired);
         Assert.All(resources, r => Assert.Equal(TickerStatus.InProgress, r.Status));
     }
 
     [Fact]
-    public async Task SetTickersInProgress_OnlyCronOccurrences_CallsCronUpdateOnly()
+    public async Task SetTickersInProgress_OnlyCronOccurrences_CallsCronTransitionOnly()
     {
         var cronId = Guid.NewGuid();
         var resources = new[]
@@ -747,18 +732,16 @@ public class InternalTickerManagerTests
             }
         };
 
-        _persistence.UpdateCronTickerOccurrencesWithUnifiedContext(
-                Arg.Any<Guid[]>(), Arg.Any<InternalFunctionContext>(), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
+        _persistence.TransitionQueuedCronOccurrencesToInProgressAsync(Arg.Any<Guid[]>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Guid[]>());
 
         await _manager.SetTickersInProgress(resources, CancellationToken.None);
 
-        await _persistence.Received(1).UpdateCronTickerOccurrencesWithUnifiedContext(
+        await _persistence.Received(1).TransitionQueuedCronOccurrencesToInProgressAsync(
             Arg.Is<Guid[]>(ids => ids.Length == 1 && ids[0] == cronId),
-            Arg.Any<InternalFunctionContext>(),
             Arg.Any<CancellationToken>());
-        await _persistence.DidNotReceive().UpdateTimeTickersWithUnifiedContext(
-            Arg.Any<Guid[]>(), Arg.Any<InternalFunctionContext>(), Arg.Any<CancellationToken>());
+        await _persistence.DidNotReceive().TransitionQueuedTimeTickersToInProgressAsync(
+            Arg.Any<Guid[]>(), Arg.Any<CancellationToken>());
     }
 
     // ====================================================================

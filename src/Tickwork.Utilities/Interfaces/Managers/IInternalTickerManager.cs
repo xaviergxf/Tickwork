@@ -11,7 +11,8 @@ namespace Tickwork.Utilities.Interfaces.Managers
     {
         Task<(TimeSpan TimeRemaining, InternalFunctionContext[] Functions)> GetNextTickers(CancellationToken cancellationToken = default);
         Task ReleaseAcquiredResources(InternalFunctionContext[] context, CancellationToken cancellationToken = default);
-        Task SetTickersInProgress(InternalFunctionContext[] context, CancellationToken cancellationToken = default);
+        /// <summary>Moves the queued tickers to InProgress and returns the ones this node still held; only those may run.</summary>
+        Task<InternalFunctionContext[]> SetTickersInProgress(InternalFunctionContext[] context, CancellationToken cancellationToken = default);
         Task UpdateTickerAsync(InternalFunctionContext context, CancellationToken cancellationToken = default);
         Task<T> GetRequestAsync<T>(Guid tickerId, TickerType type, CancellationToken cancellationToken = default);
         Task<T> GetRequestAsync<T>(Guid tickerId, TickerType type, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken = default);

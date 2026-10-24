@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using NSubstitute;
 using Tickwork.BackgroundServices;
 using Tickwork.Utilities;
+using Tickwork.Utilities.Enums;
 using Tickwork.Utilities.Interfaces;
 using Tickwork.Utilities.Interfaces.Managers;
 using Tickwork.Utilities.Models;
@@ -209,5 +210,110 @@ public class TickworkSchedulerBackgroundServiceShutdownTests
         _taskScheduler.Received(1).Freeze();
 
         service.Dispose();
+    }
+
+    // Bounds a wait that only an engine hang would exceed; a healthy run never reaches it.
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+
+    // The bug: StopAsync froze the task scheduler while the loop was between moving tickers to
+    // InProgress and queueing them, so the queueing failed and the tickers stayed InProgress with
+    // nothing running them.
+    [Fact]
+    public async Task StopAsync_Waits_For_An_Acquisition_In_Flight_To_Queue_What_It_Acquired_Before_Freezing()
+    {
+        var context = new InternalFunctionContext
+        {
+            TickerId = Guid.NewGuid(),
+            Type = TickerType.TimeTicker,
+            FunctionName = "acquisition-window"
+        };
+        _executionContext.SetFunctions([context]);
+
+        var acquisitionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishAcquisition = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                acquisitionStarted.TrySetResult();
+                await finishAcquisition.Task;
+                return new[] { context };
+            });
+
+        var frozen = 0;
+        var queuedWhileFrozen = 0;
+        var queuedBeforeFreeze = 0;
+        _taskScheduler.When(x => x.Freeze()).Do(_ => Interlocked.Exchange(ref frozen, 1));
+        _taskScheduler.QueueAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<TickerTaskPriority>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Volatile.Read(ref frozen) != 0)
+                {
+                    Interlocked.Increment(ref queuedWhileFrozen);
+                    return ValueTask.FromException(new InvalidOperationException("Scheduler is frozen"));
+                }
+
+                Interlocked.Increment(ref queuedBeforeFreeze);
+                return ValueTask.CompletedTask;
+            });
+
+        var service = CreateService();
+        try
+        {
+            await service.StartAsync(CancellationToken.None);
+            await acquisitionStarted.Task.WaitAsync(HangGuard);
+
+            var stopTask = service.StopAsync(CancellationToken.None);
+
+            Assert.Equal(0, Volatile.Read(ref frozen));
+            Assert.False(stopTask.IsCompleted);
+
+            finishAcquisition.TrySetResult();
+            await stopTask.WaitAsync(HangGuard);
+
+            Assert.Equal(1, queuedBeforeFreeze);
+            Assert.Equal(0, queuedWhileFrozen);
+            _taskScheduler.Received(1).Freeze();
+        }
+        finally
+        {
+            finishAcquisition.TrySetResult();
+            service.Dispose();
+        }
+    }
+
+    // The bug: every ticker the loop had queued was run, even one the fallback had taken over in the
+    // meantime and was already running.
+    [Fact]
+    public async Task The_Loop_Runs_Only_The_Tickers_It_Still_Held_When_It_Moved_Them_To_InProgress()
+    {
+        var held = new InternalFunctionContext { TickerId = Guid.NewGuid(), Type = TickerType.TimeTicker, FunctionName = "held" };
+        var takenOver = new InternalFunctionContext { TickerId = Guid.NewGuid(), Type = TickerType.TimeTicker, FunctionName = "taken-over" };
+        _executionContext.SetFunctions([held, takenOver]);
+
+        _internalManager.SetTickersInProgress(Arg.Any<InternalFunctionContext[]>(), Arg.Any<CancellationToken>())
+            .Returns([held]);
+        var loopMovedOn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _internalManager.GetNextTickers(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                loopMovedOn.TrySetResult();
+                return (Timeout.InfiniteTimeSpan, Array.Empty<InternalFunctionContext>());
+            });
+
+        var service = CreateService();
+        try
+        {
+            await service.StartAsync(CancellationToken.None);
+            await loopMovedOn.Task.WaitAsync(HangGuard);
+
+            await _taskScheduler.Received(1).QueueAsync(
+                Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<TickerTaskPriority>(), Arg.Any<CancellationToken>());
+
+            await service.StopAsync(CancellationToken.None);
+        }
+        finally
+        {
+            service.Dispose();
+        }
     }
 }

@@ -8,6 +8,7 @@ using Tickwork.Utilities;
 using Tickwork.Utilities.Enums;
 using Tickwork.Utilities.Interfaces;
 using Tickwork.Utilities.Interfaces.Managers;
+using Tickwork.Utilities.Models;
 
 namespace Tickwork.BackgroundServices;
 
@@ -21,7 +22,9 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
     private readonly ITickworkTaskScheduler  _taskScheduler;
     private readonly ITickerExecutionTaskHandler  _taskHandler;
     private readonly ITickerFunctionConcurrencyGate _concurrencyGate;
+    private readonly SemaphoreSlim _acquisitionPublicationGate = new(1, 1);
     private int _started;
+    private int _stopping;
     public bool SkipFirstRun;
     public bool IsRunning => _started == 1;
 
@@ -52,6 +55,7 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
             return Task.CompletedTask;
         }
         
+        Interlocked.Exchange(ref _stopping, 0);
         _taskScheduler.Resume();
         return Interlocked.CompareExchange(ref _started, 1, 0) != 0 
             ? Task.CompletedTask : base.StartAsync(ct);
@@ -102,31 +106,38 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
         {
             if (_executionContext.Functions.Length != 0)
             {
-                await _internalTickerManager.SetTickersInProgress(_executionContext.Functions, cancellationToken);
-
-                foreach (var function in _executionContext.Functions.OrderBy(x => x.CachedPriority))
+                // Acquisition and publication to the task scheduler happen under one gate, which
+                // StopAsync takes before it freezes the scheduler: a ticker moved to InProgress is
+                // always queued, never left InProgress with nothing running it because the scheduler
+                // froze in between.
+                var stopping = false;
+                await _acquisitionPublicationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    var semaphore = _concurrencyGate.GetSemaphoreOrNull(function.FunctionName, function.CachedMaxConcurrency);
-
-                    _ = _taskScheduler.QueueAsync(async ct =>
+                    stopping = Volatile.Read(ref _stopping) != 0;
+                    if (!stopping)
                     {
-                        if (semaphore != null)
-                            await semaphore.WaitAsync(ct).ConfigureAwait(false);
+                        var acquired = await _internalTickerManager
+                            .SetTickersInProgress(_executionContext.Functions, cancellationToken)
+                            .ConfigureAwait(false);
 
-                        try
-                        {
-                            await _taskHandler.ExecuteTaskAsync(function, false, ct).ConfigureAwait(false);
-                        }
-                        finally
-                        {
-                            semaphore?.Release();
-                        }
-                    }, function.CachedPriority, stoppingToken);
+                        foreach (var function in acquired.OrderBy(x => x.CachedPriority))
+                            await QueueAcquiredExecutionAsync(function, stoppingToken).ConfigureAwait(false);
+
+                        _executionContext.SetFunctions(null);
+                    }
                 }
-                
-                _executionContext.SetFunctions(null);
+                finally
+                {
+                    _acquisitionPublicationGate.Release();
+                }
+
+                // Stopping: acquire nothing more. The stop cancels this wait, and the cancellation
+                // handler releases the tickers that were only queued.
+                if (stopping)
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
             }
-            
+
             var (timeRemaining, functions) =
                 await _internalTickerManager.GetNextTickers(cancellationToken);
 
@@ -158,6 +169,36 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
             }
 
             await Task.Delay(sleepDuration, cancellationToken);
+        }
+    }
+
+    private async Task QueueAcquiredExecutionAsync(InternalFunctionContext function, CancellationToken stoppingToken)
+    {
+        var semaphore = _concurrencyGate.GetSemaphoreOrNull(function.FunctionName, function.CachedMaxConcurrency);
+
+        try
+        {
+            await _taskScheduler.QueueAsync(async ct =>
+            {
+                if (semaphore != null)
+                    await semaphore.WaitAsync(ct).ConfigureAwait(false);
+
+                try
+                {
+                    await _taskHandler.ExecuteTaskAsync(function, false, ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    semaphore?.Release();
+                }
+            }, function.CachedPriority, stoppingToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The publication used to be discarded, so its failure went unseen. Report it and carry on
+            // with the other acquired tickers; the row stays InProgress under this node's lock and is
+            // released when the node starts again.
+            _executionContext.NotifyCoreAction?.Invoke(ex.ToString(), CoreNotifyActionType.NotifyHostExceptionMessage);
         }
     }
 
@@ -210,7 +251,18 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
     
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _taskScheduler.Freeze();
+        // No acquisition starts once stopping is set, and the freeze waits for one in flight to
+        // finish queueing what it acquired.
+        Interlocked.Exchange(ref _stopping, 1);
+        await _acquisitionPublicationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _taskScheduler.Freeze();
+        }
+        finally
+        {
+            _acquisitionPublicationGate.Release();
+        }
         Interlocked.Exchange(ref _started, 0);
         await base.StopAsync(cancellationToken);
     }
@@ -218,6 +270,7 @@ internal class TickworkSchedulerBackgroundService : BackgroundService, ITickwork
     public override void Dispose()
     {
         _restartThrottle.Dispose();
+        _acquisitionPublicationGate.Dispose();
         base.Dispose();
     }
 }
